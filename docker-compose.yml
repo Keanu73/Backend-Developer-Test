@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  app:
+    build:
+      dockerfile: Dockerfile
+      context: .
+      target: dev
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/opt/app
+  db:
+    image: postgis/postgis:14-3.3-alpine
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=spots
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./spots.sql:/docker-entrypoint-initdb.d/spots.sql
