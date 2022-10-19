@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -25,16 +24,16 @@ const (
 
 // Spot struct - defines the properties of a spot.
 type Spot struct {
-	ID          uuid.UUID   `json:"id"`
-	Name        string      `json:"name"`
-	Website     *string     `json:"website"`
-	Coordinates pgtype.Text `json:"coordinates"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Website     *string `json:"website"`
+	Coordinates string  `json:"coordinates"`
 	// Latitude    float32       `json:"latitude"`
 	// Longitude   float32       `json:"longitude"`
-	// Distance    float32       `json:"distance,omitempty"`
-	Description *string       `json:"description"`
-	Rating      pgtype.Float8 `json:"rating"`
-	DomainCount int           `json:"domain_count,omitempty"`
+	Distance    float64 `json:"distance,omitempty"`
+	Description *string `json:"description"`
+	Rating      float64 `json:"rating"`
+	DomainCount int     `json:"domain_count,omitempty"`
 }
 
 // Spots struct - slice used for bundling multiple spots.
@@ -164,10 +163,16 @@ func Bootstrap() *fiber.App {
 			   ST_X(coordinates::geometry) AS longitude,
 			   ST_Distance_Sphere(coordinates, ST_MakePoint($1, $2)) AS distance,
 			*/
-			dbQuery := `SELECT id, name, website, ST_AsText(coordinates), description, rating FROM spots
+			dbQuery := `
+			WITH cte AS (SELECT *, 
+				((WHERE (ST_Distance(ST_MakePoint($1, $2)::geography, LAG(coordinates,
+			1)) - coordinates) = 50) OVER (ORDER BY rating) FROM spots s)
+			
+			SELECT id, name, website, ST_AsText(coordinates), description, rating, 
+			ST_Distance(ST_MakePoint($1,
+			$2)::geography, coordinates) AS distance FROM cte
     WHERE ST_DWithin(ST_MakePoint($1, $2)::geography, coordinates, $3)
-		ORDER BY ST_Distance(ST_MakePoint($1, $2)::geography, coordinates), rating;
-    `
+		ORDER BY distance ASC;`
 
 			/*
 								* Based on my Stackoverflow reading, I've concluded that there's no point
@@ -237,11 +242,17 @@ func Bootstrap() *fiber.App {
 			for rows.Next() {
 				spot := Spot{}
 
+				var coordinateText pgtype.Text
+				var ratingFloat pgtype.Float8
+
 				if err := rows.Scan(
-					&spot.ID, &spot.Name, &spot.Website, &spot.Coordinates, &spot.Description, &spot.Rating,
+					&spot.ID, &spot.Name, &spot.Website, &coordinateText, &spot.Description, &ratingFloat, &spot.Distance,
 				); err != nil {
 					return fmt.Errorf("spot: error scanning: %w", err)
 				}
+
+				spot.Coordinates = coordinateText.String
+				spot.Rating = ratingFloat.Float64
 
 				// Append scanned spot into slice
 				result.Spots = append(result.Spots, spot)

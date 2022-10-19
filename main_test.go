@@ -8,21 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type SpotsResponse struct {
-	Spots []SpotResponse `json:"spots"`
-	Total int            `json:"total"`
-}
-
-type SpotResponse struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Website     *string `json:"website"`
-	Coordinates string  `json:"coordinates"`
-	Description *string `json:"description"`
-	Rating      float32 `json:"rating"`
-	DomainCount int     `json:"domain_count,omitempty"`
-}
-
 func TestDuplicateDomains(t *testing.T) {
 	// What do we want to test?
 	// We should double-check that none of the results yield DomainCount = 1.
@@ -54,7 +39,7 @@ func TestDuplicateDomains(t *testing.T) {
 	assert.Equalf(t, expectedCode, res.StatusCode, "%s: status code: %d", description, res.StatusCode)
 
 	// Read the response body using JSON
-	spots := SpotsResponse{}
+	spots := Spots{}
 	decoder := json.NewDecoder(res.Body)
 	err = decoder.Decode(&spots)
 
@@ -95,6 +80,19 @@ func TestSpotsInArea(t *testing.T) {
 		radius    int
 		// type string
 	}{
+		{53.38866, -2.91334, 2000},
+		{1, 0, 0},
+		{2, -2, -2},
+		{0, -1, -1},
+		{-1, 0, -1},
+	}
+
+	var expectedTestData = []struct {
+		latitude  float32
+		longitude float32
+		radius    int
+		// type string
+	}{
 		{53, -2, 2000},
 		{1, 0, 0},
 		{2, -2, -2},
@@ -122,7 +120,7 @@ func TestSpotsInArea(t *testing.T) {
 	assert.Equalf(t, expectedCode, res.StatusCode, "%s: status code: %d", description, res.StatusCode)
 
 	// Read the response body using JSON
-	spots := SpotsResponse{}
+	spots := Spots{}
 	decoder := json.NewDecoder(res.Body)
 	err = decoder.Decode(&spots)
 
